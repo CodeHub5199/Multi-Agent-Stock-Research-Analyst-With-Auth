@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>StockMind — Multi-Agent Stock Research</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230b0f14'/><polyline points='10,70 30,45 50,55 70,25 90,35' fill='none' stroke='%232dd4bf' stroke-width='8' stroke-linecap='round' stroke-linejoin='round'/><circle cx='90' cy='35' r='6' fill='%232dd4bf'/></svg>"/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,700;1,9..144,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+/* ═══════════════════════════════════════════
+   TOKENS — identical to dashboard.html
+═══════════════════════════════════════════ */
+:root {
+  --bg:          #0b0f14;
+  --bg2:         #111720;
+  --bg3:         #172030;
+  --border:      #1e2d40;
+  --border2:     #253448;
+  --text:        #d8e4f0;
+  --text-dim:    #6b8299;
+  --text-bright: #f0f8ff;
+  --accent:      #2dd4bf;
+  --accent2:     #f59e0b;
+  --bull:        #34d399;
+  --bear:        #f87171;
+  --font-head:   'Fraunces', Georgia, serif;
+  --font-body:   'DM Sans', sans-serif;
+  --font-mono:   'DM Mono', monospace;
+  --radius:      10px;
+  --radius-lg:   16px;
+  --shadow:      0 4px 24px rgba(0,0,0,.45);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+a { color: var(--accent); text-decoration: none; }
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ═══════════════════════════════════════════
+   NAV
+═══════════════════════════════════════════ */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 40px; height: 64px;
+  background: rgba(11,15,20,.85);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+.logo {
+  font-family: var(--font-head);
+  font-size: 22px; font-weight: 700;
+  color: var(--text-bright); letter-spacing: -.5px;
+}
+.logo span { color: var(--accent); }
+.nav-cta {
+  display: flex; gap: 10px; align-items: center;
+}
+.btn-ghost {
+  background: none; border: 1px solid var(--border2);
+  color: var(--text); font-family: var(--font-body);
+  font-size: 13px; padding: 7px 18px;
+  border-radius: var(--radius); cursor: pointer;
+  transition: border-color .2s, color .2s;
+}
+.btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+.btn-primary {
+  background: var(--accent); border: none;
+  color: #0b0f14; font-family: var(--font-body);
+  font-weight: 600; font-size: 13px;
+  padding: 8px 20px; border-radius: var(--radius);
+  cursor: pointer; transition: opacity .15s, transform .1s;
+}
+.btn-primary:hover { opacity: .85; transform: translateY(-1px); }
+
+/* ═══════════════════════════════════════════
+   HERO
+═══════════════════════════════════════════ */
+.hero {
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 100px 24px 60px;
+  position: relative; text-align: center;
+  overflow: hidden;
+}
+
+/* Animated grid background */
+.hero::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 60px 60px;
+  opacity: .35;
+  mask-image: radial-gradient(ellipse 80% 70% at 50% 50%, black 30%, transparent 100%);
+}
+
+/* Glow orbs */
+.hero::after {
+  content: '';
+  position: absolute;
+  width: 600px; height: 600px;
+  background: radial-gradient(circle, rgba(45,212,191,.08) 0%, transparent 70%);
+  top: 50%; left: 50%;
+  transform: translate(-50%, -55%);
+  pointer-events: none;
+}
+
+.hero-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 11px; letter-spacing: 2px;
+  color: var(--accent); text-transform: uppercase;
+  margin-bottom: 18px;
+  display: flex; align-items: center; gap: 8px;
+  position: relative; z-index: 1;
+}
+.hero-eyebrow::before, .hero-eyebrow::after {
+  content: ''; height: 1px; width: 32px;
+  background: var(--accent); opacity: .5;
+}
+
+.hero h1 {
+  font-family: var(--font-head);
+  font-size: clamp(38px, 6vw, 72px);
+  font-weight: 300; line-height: 1.1;
+  color: var(--text-bright); letter-spacing: -2px;
+  margin-bottom: 22px;
+  position: relative; z-index: 1;
+}
+.hero h1 em { font-style: italic; color: var(--accent); }
+.hero h1 strong { font-weight: 700; }
+
+.hero-sub {
+  font-size: 16px; color: var(--text-dim);
+  max-width: 520px; line-height: 1.7;
+  margin-bottom: 38px;
+  position: relative; z-index: 1;
+}
+
+.hero-actions {
+  display: flex; gap: 12px; flex-wrap: wrap;
+  justify-content: center;
+  position: relative; z-index: 1;
+  margin-bottom: 64px;
+}
+.btn-hero {
+  background: var(--accent); border: none;
+  color: #0b0f14; font-family: var(--font-body);
+  font-weight: 600; font-size: 15px;
+  padding: 13px 32px; border-radius: 12px;
+  cursor: pointer; transition: opacity .15s, transform .1s;
+  letter-spacing: .2px;
+}
+.btn-hero:hover { opacity: .88; transform: translateY(-2px); }
+.btn-hero-outline {
+  background: none; border: 1px solid var(--border2);
+  color: var(--text); font-family: var(--font-body);
+  font-size: 15px; padding: 13px 32px;
+  border-radius: 12px; cursor: pointer;
+  transition: border-color .2s, color .2s;
+}
+.btn-hero-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Agent pills */
+.agent-pills {
+  display: flex; flex-wrap: wrap; justify-content: center; gap: 8px;
+  position: relative; z-index: 1;
+}
+.pill {
+  display: flex; align-items: center; gap: 6px;
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: 20px; padding: 6px 14px;
+  font-size: 12px; color: var(--text-dim);
+  font-family: var(--font-mono);
+  transition: border-color .2s, color .2s;
+}
+.pill:hover { border-color: var(--accent); color: var(--text); }
+.pill-dot {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--accent); flex-shrink: 0;
+}
+
+/* ═══════════════════════════════════════════
+   FEATURES STRIP
+═══════════════════════════════════════════ */
+.features {
+  padding: 80px 24px;
+  max-width: 1100px; margin: 0 auto;
+}
+.features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+.feat-card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 28px 24px;
+  transition: border-color .2s, transform .2s;
+}
+.feat-card:hover { border-color: var(--border2); transform: translateY(-3px); }
+.feat-icon {
+  font-size: 26px; margin-bottom: 14px; display: block;
+}
+.feat-title {
+  font-family: var(--font-head); font-size: 17px;
+  color: var(--text-bright); margin-bottom: 8px; font-weight: 600;
+}
+.feat-desc { font-size: 13px; color: var(--text-dim); line-height: 1.65; }
+
+/* ═══════════════════════════════════════════
+   AUTH MODAL
+═══════════════════════════════════════════ */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 500;
+  background: rgba(7,10,15,.85);
+  backdrop-filter: blur(6px);
+  align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+
+.modal {
+  background: var(--bg2); border: 1px solid var(--border2);
+  border-radius: 20px; padding: 36px 36px 32px;
+  width: 100%; max-width: 420px;
+  box-shadow: 0 24px 64px rgba(0,0,0,.6);
+  animation: modalIn .25s ease both;
+  position: relative;
+}
+@keyframes modalIn {
+  from { opacity: 0; transform: translateY(20px) scale(.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+.modal-close {
+  position: absolute; top: 16px; right: 18px;
+  background: none; border: none; cursor: pointer;
+  color: var(--text-dim); font-size: 20px; line-height: 1;
+  transition: color .15s;
+}
+.modal-close:hover { color: var(--text-bright); }
+
+.modal-logo {
+  font-family: var(--font-head); font-size: 20px;
+  font-weight: 700; color: var(--text-bright);
+  margin-bottom: 4px;
+}
+.modal-logo span { color: var(--accent); }
+
+.modal-title {
+  font-family: var(--font-head); font-size: 22px;
+  color: var(--text-bright); font-weight: 300;
+  margin-bottom: 6px;
+}
+.modal-sub { font-size: 13px; color: var(--text-dim); margin-bottom: 26px; }
+
+/* Google button */
+.btn-google {
+  width: 100%; display: flex; align-items: center; justify-content: center;
+  gap: 10px; padding: 11px 16px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  border-radius: var(--radius); cursor: pointer;
+  font-family: var(--font-body); font-size: 13px;
+  color: var(--text); transition: border-color .2s, background .2s;
+  margin-bottom: 20px;
+}
+.btn-google:hover { border-color: var(--accent); background: #1a2535; }
+.btn-google svg { flex-shrink: 0; }
+
+.divider {
+  display: flex; align-items: center; gap: 12px;
+  margin-bottom: 20px;
+}
+.divider::before, .divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+.divider span { font-size: 11px; color: var(--text-dim); font-family: var(--font-mono); }
+
+/* Form fields */
+.field { margin-bottom: 14px; }
+.field label {
+  display: block; font-size: 12px;
+  color: var(--text-dim); margin-bottom: 6px;
+  font-family: var(--font-mono);
+}
+.field input {
+  width: 100%; background: var(--bg3);
+  border: 1px solid var(--border2); border-radius: var(--radius);
+  padding: 10px 14px; color: var(--text-bright);
+  font-family: var(--font-body); font-size: 14px;
+  outline: none; transition: border-color .2s;
+}
+.field input:focus { border-color: var(--accent); }
+.field input::placeholder { color: var(--text-dim); }
+
+.btn-submit {
+  width: 100%; padding: 12px;
+  background: var(--accent); border: none;
+  border-radius: var(--radius); color: #0b0f14;
+  font-family: var(--font-body); font-weight: 600;
+  font-size: 14px; cursor: pointer;
+  transition: opacity .15s; margin-top: 4px;
+}
+.btn-submit:hover:not(:disabled) { opacity: .85; }
+.btn-submit:disabled { opacity: .45; cursor: not-allowed; }
+
+.auth-switch {
+  text-align: center; margin-top: 18px;
+  font-size: 13px; color: var(--text-dim);
+}
+.auth-switch a { color: var(--accent); cursor: pointer; }
+.auth-switch a:hover { text-decoration: underline; }
+
+.auth-msg {
+  margin-top: 12px; padding: 10px 14px;
+  border-radius: var(--radius); font-size: 13px;
+  display: none;
+}
+.auth-msg.error { background: rgba(248,113,113,.1); border: 1px solid var(--bear); color: var(--bear); display: block; }
+.auth-msg.success { background: rgba(52,211,153,.1); border: 1px solid var(--bull); color: var(--bull); display: block; }
+
+/* ═══════════════════════════════════════════
+   FOOTER
+═══════════════════════════════════════════ */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 24px 40px;
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 12px; color: var(--text-dim);
+  font-family: var(--font-mono);
+}
+footer .logo { font-size: 16px; }
+</style>
+</head>
+<body>
+
+<!-- ═══ NAV ══════════════════════════════════════════════════════════ -->
+<nav>
+  <div class="logo">Stock<span>Mind</span></div>
+  <div class="nav-cta">
+    <button class="btn-ghost" onclick="openModal('login')">Log in</button>
+    <button class="btn-primary" onclick="openModal('signup')">Get started</button>
+  </div>
+</nav>
+
+<!-- ═══ HERO ══════════════════════════════════════════════════════════ -->
+<section class="hero">
+  <div class="hero-eyebrow">Multi-Agent AI Research</div>
+  <h1>Research any <em>stock</em>.<br><strong>Institutional</strong> grade.</h1>
+  <p class="hero-sub">
+    Five parallel AI agents — Fundamentals, Technical, News, Synthesis, Critic —
+    deliver a complete equity research report in under 60 seconds.
+  </p>
+  <div class="hero-actions">
+    <button class="btn-hero" onclick="openModal('signup')">Start researching →</button>
+    <button class="btn-hero-outline" onclick="openModal('login')">Log in</button>
+  </div>
+  <div class="agent-pills">
+    <div class="pill"><span class="pill-dot"></span>Fundamentals</div>
+    <div class="pill"><span class="pill-dot"></span>Technical Analysis</div>
+    <div class="pill"><span class="pill-dot"></span>News &amp; Sentiment</div>
+    <div class="pill"><span class="pill-dot"></span>Synthesis</div>
+    <div class="pill"><span class="pill-dot"></span>Critic</div>
+  </div>
+</section>
+
+<!-- ═══ FEATURES ══════════════════════════════════════════════════════ -->
+<section class="features">
+  <div class="features-grid">
+    <div class="feat-card">
+      <span class="feat-icon">⚡</span>
+      <div class="feat-title">Parallel Agents</div>
+      <div class="feat-desc">All five research agents run concurrently via LangGraph, cutting analysis time from hours to under a minute.</div>
+    </div>
+    <div class="feat-card">
+      <span class="feat-icon">🎯</span>
+      <div class="feat-title">Critic Layer</div>
+      <div class="feat-desc">A dedicated critic agent stress-tests every bull thesis, surfaces bear cases, data gaps, and hidden risks.</div>
+    </div>
+    <div class="feat-card">
+      <span class="feat-icon">🇮🇳</span>
+      <div class="feat-title">India-First</div>
+      <div class="feat-desc">Optimised for NSE/BSE equities with INR formatting, RBI/SEBI regulatory context, and full NSE autocomplete.</div>
+    </div>
+    <div class="feat-card">
+      <span class="feat-icon">📂</span>
+      <div class="feat-title">Report History</div>
+      <div class="feat-desc">Every analysis is saved to your account. Revisit past reports and track how your stocks evolve over time.</div>
+    </div>
+    <div class="feat-card">
+      <span class="feat-icon">🔐</span>
+      <div class="feat-title">Secure Auth</div>
+      <div class="feat-desc">Sign in with Google or email/password. Reports are private and tied exclusively to your account.</div>
+    </div>
+    <div class="feat-card">
+      <span class="feat-icon">🚀</span>
+      <div class="feat-title">Production Ready</div>
+      <div class="feat-desc">FastAPI async backend, Pydantic v2 validation, Groq LLM inference — built for reliability at scale.</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="logo">Stock<span>Mind</span></div>
+  <span>© 2025 StockMind · For research purposes only · Not financial advice</span>
+  <span>Powered by LangGraph · Groq · Supabase</span>
+</footer>
+
+<!-- ═══ AUTH MODAL ════════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="auth-modal" onclick="handleOverlayClick(event)">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+
+    <!-- LOGIN VIEW -->
+    <div id="view-login">
+      <div class="modal-logo">Stock<span>Mind</span></div>
+      <div class="modal-title">Welcome back</div>
+      <div class="modal-sub">Sign in to access your research dashboard</div>
+
+      <button class="btn-google" onclick="signInWithGoogle()">
+        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+        Continue with Google
+      </button>
+
+      <div class="divider"><span>or continue with email</span></div>
+
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="login-email" placeholder="you@example.com" autocomplete="email"/>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="login-password" placeholder="••••••••" autocomplete="current-password"/>
+      </div>
+
+      <button class="btn-submit" id="login-btn" onclick="signInWithEmail()">Log in</button>
+      <div class="auth-msg" id="login-msg"></div>
+
+      <div class="auth-switch">
+        Don't have an account? <a onclick="switchView('signup')">Sign up</a>
+      </div>
+    </div>
+
+    <!-- SIGNUP VIEW -->
+    <div id="view-signup" style="display:none;">
+      <div class="modal-logo">Stock<span>Mind</span></div>
+      <div class="modal-title">Create account</div>
+      <div class="modal-sub">Start researching NSE/BSE stocks with AI</div>
+
+      <button class="btn-google" onclick="signInWithGoogle()">
+        <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.637-.057-1.251-.164-1.84H9v3.481h4.844c-.209 1.125-.843 2.078-1.796 2.717v2.258h2.908c1.702-1.567 2.684-3.874 2.684-6.615z"/><path fill="#34A853" d="M9 18c2.43 0 4.467-.806 5.956-2.18l-2.908-2.259c-.806.54-1.837.86-3.048.86-2.344 0-4.328-1.584-5.036-3.711H.957v2.332A8.997 8.997 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.964 10.71A5.41 5.41 0 0 1 3.682 9c0-.593.102-1.17.282-1.71V4.958H.957A8.996 8.996 0 0 0 0 9c0 1.452.348 2.827.957 4.042l3.007-2.332z"/><path fill="#EA4335" d="M9 3.58c1.321 0 2.508.454 3.44 1.345l2.582-2.58C13.463.891 11.426 0 9 0A8.997 8.997 0 0 0 .957 4.958L3.964 6.29C4.672 4.163 6.656 3.58 9 3.58z"/></svg>
+        Sign up with Google
+      </button>
+
+      <div class="divider"><span>or continue with email</span></div>
+
+      <div class="field">
+        <label>Full name</label>
+        <input type="text" id="signup-name" placeholder="Arjun Sharma" autocomplete="name"/>
+      </div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="signup-email" placeholder="you@example.com" autocomplete="email"/>
+      </div>
+      <div class="field">
+        <label>Password</label>
+        <input type="password" id="signup-password" placeholder="Min. 8 characters" autocomplete="new-password"/>
+      </div>
+
+      <button class="btn-submit" id="signup-btn" onclick="signUpWithEmail()">Create account</button>
+      <div class="auth-msg" id="signup-msg"></div>
+
+      <div class="auth-switch">
+        Already have an account? <a onclick="switchView('login')">Log in</a>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════
+   SUPABASE CONFIG
+   Replace with your actual project values
+═══════════════════════════════════════════ */
+const SUPABASE_URL  = 'https://vwswvjulqrfgkxitbgod.supabase.co';
+const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ3c3d2anVscXJmZ2t4aXRiZ29kIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMTYwNzksImV4cCI6MjA5MzY5MjA3OX0.nxg7SMw3YNmJV9HRVgMadO19JF2vf04MoukWU0R59ic';
+
+const { createClient } = supabase;
+const sb = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+/* ── Check if already logged in ──────────── */
+(async () => {
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) redirectToDashboard();
+})();
+
+/* ═══════════════════════════════════════════
+   MODAL HELPERS
+═══════════════════════════════════════════ */
+function openModal(view = 'login') {
+  switchView(view);
+  document.getElementById('auth-modal').classList.add('open');
+}
+function closeModal() {
+  document.getElementById('auth-modal').classList.remove('open');
+}
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('auth-modal')) closeModal();
+}
+function switchView(view) {
+  document.getElementById('view-login').style.display  = view === 'login'  ? 'block' : 'none';
+  document.getElementById('view-signup').style.display = view === 'signup' ? 'block' : 'none';
+}
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+/* ═══════════════════════════════════════════
+   AUTH LOGIC
+═══════════════════════════════════════════ */
+function setMsg(id, text, type) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.className = `auth-msg ${type}`;
+}
+function clearMsg(id) {
+  const el = document.getElementById(id);
+  el.className = 'auth-msg';
+  el.textContent = '';
+}
+function redirectToDashboard() {
+  window.location.href = '/dashboard';
+}
+
+/* Google OAuth */
+async function signInWithGoogle() {
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin + '/dashboard' }
+  });
+  if (error) alert('Google sign-in failed: ' + error.message);
+}
+
+/* Email login */
+async function signInWithEmail() {
+  clearMsg('login-msg');
+  const email    = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  if (!email || !password) { setMsg('login-msg', 'Please fill in all fields.', 'error'); return; }
+
+  const btn = document.getElementById('login-btn');
+  btn.disabled = true; btn.textContent = 'Signing in…';
+
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+
+  btn.disabled = false; btn.textContent = 'Log in';
+  if (error) { setMsg('login-msg', error.message, 'error'); return; }
+  redirectToDashboard();
+}
+
+/* Email signup */
+async function signUpWithEmail() {
+  clearMsg('signup-msg');
+  const name     = document.getElementById('signup-name').value.trim();
+  const email    = document.getElementById('signup-email').value.trim();
+  const password = document.getElementById('signup-password').value;
+
+  if (!name || !email || !password) { setMsg('signup-msg', 'Please fill in all fields.', 'error'); return; }
+  if (password.length < 8) { setMsg('signup-msg', 'Password must be at least 8 characters.', 'error'); return; }
+
+  const btn = document.getElementById('signup-btn');
+  btn.disabled = true; btn.textContent = 'Creating account…';
+
+  const { error } = await sb.auth.signUp({
+    email, password,
+    options: { data: { full_name: name } }
+  });
+
+  btn.disabled = false; btn.textContent = 'Create account';
+  if (error) { setMsg('signup-msg', error.message, 'error'); return; }
+  setMsg('signup-msg', 'Account created! Check your email to confirm, then log in.', 'success');
+}
+
+/* Enter key support */
+document.getElementById('login-password').addEventListener('keydown',  e => { if (e.key==='Enter') signInWithEmail(); });
+document.getElementById('signup-password').addEventListener('keydown', e => { if (e.key==='Enter') signUpWithEmail(); });
+</script>
+</body>
+</html>

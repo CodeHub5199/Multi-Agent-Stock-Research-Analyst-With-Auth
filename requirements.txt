@@ -1,0 +1,15 @@
+fastapi
+uvicorn[standard]
+pydantic
+langgraph
+langchain-groq
+langchain-core
+httpx
+python-dotenv
+supabase
+nsetools
+yfinance
+langchain-tavily
+pydantic-settings
+numpy
+pandas
