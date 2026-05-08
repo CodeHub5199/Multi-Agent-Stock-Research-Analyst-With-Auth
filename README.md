@@ -1,3 +1,12 @@
+---
+title: StockMind Multi-Agent Stock Research Analyst
+emoji: 📈
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+---
+
 # 🧠 Multi-Agent Stock Research Analyst
 
 <div align="center">
@@ -22,7 +31,7 @@
 
 ## 📖 Overview
 
-StockMind is a production-ready AI research platform that mimics how an institutional equity desk works — running **specialized agents in parallel**, synthesizing their signals, and stress-testing the thesis through a critic layer — all delivered in seconds.
+StockMind is a production-ready AI research platform that mimics how an institutional equity desk works — running **specialized agents in parallel**, synthesizing their signals, and stress-testing the thesis through a critic layer — all delivered in 60 seconds.
 
 Built on **LangGraph** for orchestration, **Groq** for ultra-fast LLM inference, **Tavily** for real-time news, and **yfinance** for market data. Optimized for **NSE/BSE-listed equities** with INR formatting and RBI/SEBI regulatory context.
 
